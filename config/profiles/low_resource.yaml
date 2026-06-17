@@ -1,0 +1,9 @@
+name: low_resource
+planner_model: qwen3:8b
+vision_model: qwen3-vl:4b
+embedding_model: nomic-embed-text
+stt_model: base.en
+tts_engine: piper
+notes:
+  - Avoids large model pulls and favors lower memory pressure.
+

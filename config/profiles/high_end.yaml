@@ -1,0 +1,10 @@
+name: high_end
+planner_model: qwen3-coder:30b
+vision_model: qwen3-vl:30b
+embedding_model: mxbai-embed-large
+stt_model: medium.en
+tts_engine: piper
+optional_planner_model: qwen3-coder:480b
+notes:
+  - qwen3-coder:480b is not pulled automatically and requires explicit user opt-in.
+

@@ -1,2 +1,95 @@
-# dumbo
-both Assistant Dumbo
+# Dumbo
+
+Dumbo is a local-first desktop AI assistant for Windows PCs. It uses local Ollama models by default, gates every PC action through an explicit tool registry and policy engine, and records tool calls in a local SQLite audit log.
+
+This scaffold does not require OpenAI, Anthropic, Google, or any cloud LLM API. Optional cloud fallback is intentionally not implemented.
+
+## Quickstart
+
+```powershell
+.\scripts\install_windows.ps1
+.\scripts\run_dumbo.ps1 doctor
+.\scripts\run_dumbo.ps1 models recommend
+.\scripts\run_dumbo.ps1 models pull --profile recommended
+.\scripts\run_dumbo.ps1 ask "open Notepad"
+.\scripts\run_dumbo.ps1 voice
+```
+
+For development without the helper scripts:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -U pip
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m dumbo doctor
+```
+
+## Core Commands
+
+```powershell
+python -m dumbo doctor
+python -m dumbo chat
+python -m dumbo ask "list my Downloads folder"
+python -m dumbo ask "open Notepad"
+python -m dumbo ask "run PowerShell Get-ChildItem"
+python -m dumbo voice
+python -m dumbo models recommend
+python -m dumbo models pull --profile recommended
+python -m dumbo models test
+python -m dumbo memory list
+python -m dumbo memory forget KEY
+python -m dumbo skills list
+python -m dumbo skills run NAME
+python -m dumbo audit tail
+python -m dumbo config path
+```
+
+## Architecture
+
+- The model never receives uncontrolled OS access.
+- Every action is a named tool with a JSON schema, risk level, dry-run support where meaningful, validation, and policy requirements.
+- Read-only tools may run automatically inside configured filesystem roots.
+- Writes, shell commands, destructive operations, privileged actions, coordinate clicks, and external commitments require confirmation or are blocked by default.
+- Audit records include the user request, model, tool, redacted arguments, dry-run result, approval decision, execution result, and errors.
+
+## Model Profiles
+
+Profiles live in `config/profiles`.
+
+- `recommended`: `qwen3-coder:30b`, `qwen3-vl:8b`, `mxbai-embed-large`, `faster-whisper small.en`, Piper.
+- `low_resource`: `qwen3:8b`, `qwen3-vl:4b`, `nomic-embed-text`, `faster-whisper base.en`, Piper.
+- `high_end`: `qwen3-coder:30b`, `qwen3-vl:30b`, `mxbai-embed-large`, `faster-whisper medium.en`, Piper. `qwen3-coder:480b` is not pulled automatically.
+
+## Development
+
+```powershell
+.\.venv\Scripts\python.exe -m ruff format .
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Optional browser setup:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[browser]"
+.\.venv\Scripts\python.exe -m playwright install chromium
+```
+
+Optional desktop/voice extras:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[desktop,voice]"
+```
+
+Voice is currently an Enter-to-record MVP: press Enter to record a fixed five-second
+window. The configured `voice.push_to_talk_key` is reserved for a later real hotkey loop.
+
+## Local Data
+
+Dumbo uses `platformdirs` for app data, cache, and log paths. Run:
+
+```powershell
+python -m dumbo config path
+```
+
+to inspect the active paths. Memory and audit logs are local SQLite files and can be listed or deleted by the user.

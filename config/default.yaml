@@ -1,0 +1,35 @@
+app:
+  name: Dumbo
+  profile: recommended
+  trusted_mode: false
+  max_tool_calls_per_request: 8
+  tool_timeout_seconds: 30
+  enable_privileged_tools: false
+  app_aliases: {}
+  allowed_executable_paths: []
+
+model:
+  context_tokens: 64000
+
+ollama:
+  base_url: http://localhost:11434
+  request_timeout_seconds: 120
+  pull_timeout_seconds: 3600
+
+filesystem:
+  project_roots: []
+  allow_sensitive_reads: false
+
+voice:
+  enabled: false
+  push_to_talk_key: ctrl+space
+  stt_model: small.en
+  tts_voice: ""
+  save_audio: false
+
+browser:
+  headless: false
+  trusted_local_urls: []
+
+audit:
+  tail_limit: 20

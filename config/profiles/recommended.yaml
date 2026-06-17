@@ -1,0 +1,9 @@
+name: recommended
+planner_model: qwen3-coder:30b
+vision_model: qwen3-vl:8b
+embedding_model: mxbai-embed-large
+stt_model: small.en
+tts_engine: piper
+notes:
+  - Balanced default for a capable Windows workstation.
+

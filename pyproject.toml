@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dumbo"
+version = "0.1.0"
+description = "A local-first desktop AI assistant with policy-gated PC tools."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Dumbo contributors" }]
+dependencies = [
+  "platformdirs>=4.2",
+  "pydantic>=2.7",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+browser = ["playwright>=1.45"]
+desktop = ["pyautogui>=0.9.54", "pywinauto>=0.6.8; platform_system == 'Windows'"]
+voice = ["faster-whisper>=1.0", "sounddevice>=0.4", "webrtcvad>=2.0.10"]
+dev = ["pytest>=8.2", "ruff>=0.5"]
+
+[project.scripts]
+dumbo = "dumbo.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dumbo"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --basetemp=.pytest_tmp"
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008"]
