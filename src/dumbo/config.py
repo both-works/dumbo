@@ -58,6 +58,12 @@ class AuditConfig:
 @dataclass(frozen=True)
 class ModelRuntimeConfig:
     context_tokens: int | None = None
+    temperature: float | None = None
+    top_p: float | None = None
+    top_k: int | None = None
+    repeat_penalty: float | None = None
+    num_predict: int | None = None
+    reasoning_effort: str = "high"
 
 
 @dataclass(frozen=True)

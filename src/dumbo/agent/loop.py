@@ -194,6 +194,7 @@ class AgentLoop:
                 stopped_reason="no_model",
             )
 
+        tools_enabled = should_enable_tools(user_input)
         messages = [
             {
                 "role": "system",
@@ -202,11 +203,11 @@ class AgentLoop:
                     self.profile,
                     self.registry,
                     memory_context=self._memory_context(user_input),
+                    include_tools=tools_enabled,
                 ),
             },
             {"role": "user", "content": user_input},
         ]
-        tools_enabled = should_enable_tools(user_input)
         tool_results: list[dict[str, Any]] = []
         for _ in range(self.config.app.max_tool_calls_per_request):
             try:
@@ -231,7 +232,7 @@ class AgentLoop:
             message = response.get("message", {})
             calls = parse_tool_calls(message)
             if not calls:
-                content = str(message.get("content", "")).strip()
+                content = clean_model_content(str(message.get("content", "")))
                 return AgentResponse(
                     final_text=content or "The model returned no final answer.",
                     tool_results=tool_results,
@@ -279,9 +280,21 @@ class AgentLoop:
         context_tokens = self.config.model.context_tokens
         if context_tokens is None and self.profile.name in {"recommended", "high_end"}:
             context_tokens = 64000
+        options: dict[str, Any] = {}
+        runtime = self.config.model
+        for option_name, value in {
+            "temperature": runtime.temperature,
+            "top_p": runtime.top_p,
+            "top_k": runtime.top_k,
+            "repeat_penalty": runtime.repeat_penalty,
+            "num_predict": runtime.num_predict,
+        }.items():
+            if value is not None:
+                options[option_name] = value
         if context_tokens is None:
-            return {}
-        return {"num_ctx": context_tokens}
+            return options
+        options["num_ctx"] = context_tokens
+        return options
 
 
 def parse_tool_calls(message: dict[str, Any]) -> list[ToolCall]:
@@ -313,6 +326,12 @@ def parse_tool_calls(message: dict[str, Any]) -> list[ToolCall]:
                 if isinstance(args, dict):
                     calls.append(ToolCall(name=item["tool"], args=args))
     return calls
+
+
+def clean_model_content(content: str) -> str:
+    cleaned = re.sub(r"<think>.*?</think>", "", content, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"^\s*(?:final answer|answer)\s*:\s*", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
 
 
 def parse_local_intent(user_input: str) -> ToolCall | None:

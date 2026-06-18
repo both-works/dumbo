@@ -65,6 +65,8 @@ gated and audited.
 - Read-only tools may run automatically inside configured filesystem roots.
 - In the checked-in owner config, safe writes can run in trusted mode. Shell commands, destructive operations, privileged actions, coordinate clicks, app closes, and external commitments still require confirmation.
 - Audit records include the user request, model, tool, redacted arguments, dry-run result, approval decision, execution result, and errors.
+- Ordinary conversation runs without tool schemas or filesystem-root clutter, so the model answers normally instead of over-focusing on PC access.
+- The default local inference settings favor reliable reasoning: high context, low temperature, nucleus/top-k sampling, repeat penalty, and a larger answer budget.
 
 ## Model Profiles
 

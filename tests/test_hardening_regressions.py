@@ -207,6 +207,9 @@ def test_checked_in_config_is_owner_full_access() -> None:
     assert config.filesystem.include_available_drives
     assert config.filesystem.allow_sensitive_reads
     assert "chrome" in config.app.app_aliases
+    assert config.model.temperature == 0.2
+    assert config.model.top_p == 0.9
+    assert config.model.reasoning_effort == "high"
 
 
 @pytest.mark.parametrize(

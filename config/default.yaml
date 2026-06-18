@@ -32,6 +32,12 @@ app:
 
 model:
   context_tokens: 64000
+  temperature: 0.2
+  top_p: 0.9
+  top_k: 40
+  repeat_penalty: 1.08
+  num_predict: 4096
+  reasoning_effort: high
 
 ollama:
   base_url: http://localhost:11434

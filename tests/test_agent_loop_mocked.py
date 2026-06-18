@@ -3,10 +3,12 @@ from typing import Any
 
 from dumbo.agent.loop import (
     AgentLoop,
+    clean_model_content,
     parse_local_answer,
     parse_local_intent,
     should_enable_tools,
 )
+from dumbo.agent.prompts import build_system_prompt
 from dumbo.config import DumboConfig, FilesystemConfig, ModelProfile
 from dumbo.tools.audit import AuditLog
 from dumbo.tools.base import BaseTool, RiskLevel, ToolContext, ToolResult
@@ -28,6 +30,7 @@ class FakeChatClient:
         tools: list[dict[str, Any]] | None = None,
         stream: bool = False,
         format_value: str | dict[str, Any] | None = None,
+        options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         self.calls += 1
         if self.calls == 1:
@@ -45,6 +48,28 @@ class FakeChatClient:
                 }
             }
         return {"message": {"role": "assistant", "content": "done"}}
+
+
+class CapturingChatClient:
+    def __init__(self):
+        self.last_tools: list[dict[str, Any]] | None = None
+        self.last_messages: list[dict[str, Any]] = []
+        self.last_options: dict[str, Any] | None = None
+
+    def chat(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        stream: bool = False,
+        format_value: str | dict[str, Any] | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        self.last_tools = tools
+        self.last_messages = messages
+        self.last_options = options
+        return {"message": {"role": "assistant", "content": "plain answer"}}
 
 
 class FakeOpenAppTool(BaseTool):
@@ -214,3 +239,59 @@ def test_tools_are_not_enabled_for_general_conversation() -> None:
     assert not should_enable_tools("explain why the sky is blue")
     assert should_enable_tools("open a word document")
     assert should_enable_tools("what's in my Downloads?")
+
+
+def test_conversation_prompt_omits_tool_inventory() -> None:
+    prompt = build_system_prompt(
+        DumboConfig(),
+        ModelProfile("test", "planner", "vision", "embed", "stt", "tts"),
+        ToolRegistry([FakeOpenAppTool()]),
+        include_tools=False,
+    )
+    assert "No tools are attached" in prompt
+    assert "Available tools:" not in prompt
+    assert "Allowed filesystem roots:" not in prompt
+
+
+def test_tool_prompt_includes_tool_inventory() -> None:
+    prompt = build_system_prompt(
+        DumboConfig(),
+        ModelProfile("test", "planner", "vision", "embed", "stt", "tts"),
+        ToolRegistry([FakeOpenAppTool()]),
+        include_tools=True,
+    )
+    assert "Tools are attached" in prompt
+    assert "Available tools:" in prompt
+    assert "open_app" in prompt
+
+
+def test_general_model_turn_sends_no_tools_and_keeps_inference_options(tmp_path: Path) -> None:
+    config = DumboConfig()
+    profile = ModelProfile(
+        name="recommended",
+        planner_model="mock",
+        vision_model="mock-v",
+        embedding_model="mock-e",
+        stt_model="none",
+        tts_engine="none",
+    )
+    audit = AuditLog(tmp_path / "audit.sqlite3")
+    client = CapturingChatClient()
+    agent = AgentLoop(
+        config=config,
+        profile=profile,
+        registry=ToolRegistry([FakeOpenAppTool()]),
+        policy=PolicyEngine(config),
+        audit=audit,
+        ollama=client,
+    )
+
+    response = agent.run("explain why careful inference matters")
+    assert response.final_text == "plain answer"
+    assert client.last_tools is None
+    assert "No tools are attached" in client.last_messages[0]["content"]
+    assert client.last_options == {"num_ctx": 64000}
+
+
+def test_model_content_cleanup_removes_thinking_tags() -> None:
+    assert clean_model_content("<think>private scratchpad</think>\nAnswer: Done.") == "Done."
