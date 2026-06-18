@@ -29,7 +29,11 @@ class VoiceConfig:
     push_to_talk_key: str = "ctrl+space"
     stt_model: str = "small.en"
     tts_voice: str = ""
+    tts_enabled: bool = True
     save_audio: bool = False
+    record_seconds: float = 7.0
+    confirmation_seconds: float = 3.0
+    wake_words: tuple[str, ...] = ("dumbo", "jarvis")
 
 
 @dataclass(frozen=True)
@@ -153,7 +157,17 @@ def load_config(config_path: Path | None = None) -> DumboConfig:
             allow_sensitive_reads=bool(filesystem_data.get("allow_sensitive_reads", False)),
             include_available_drives=bool(filesystem_data.get("include_available_drives", False)),
         ),
-        voice=VoiceConfig(**voice_data),
+        voice=VoiceConfig(
+            enabled=bool(voice_data.get("enabled", False)),
+            push_to_talk_key=str(voice_data.get("push_to_talk_key", "ctrl+space")),
+            stt_model=str(voice_data.get("stt_model", "small.en")),
+            tts_voice=str(voice_data.get("tts_voice", "")),
+            tts_enabled=bool(voice_data.get("tts_enabled", True)),
+            save_audio=bool(voice_data.get("save_audio", False)),
+            record_seconds=float(voice_data.get("record_seconds", 7.0)),
+            confirmation_seconds=float(voice_data.get("confirmation_seconds", 3.0)),
+            wake_words=_string_tuple(voice_data.get("wake_words", ["dumbo", "jarvis"])),
+        ),
         browser=BrowserConfig(
             headless=bool(browser_data.get("headless", False)),
             trusted_local_urls=_string_tuple(browser_data.get("trusted_local_urls", [])),

@@ -210,6 +210,9 @@ def test_checked_in_config_is_owner_full_access() -> None:
     assert config.model.temperature == 0.2
     assert config.model.top_p == 0.9
     assert config.model.reasoning_effort == "high"
+    assert config.voice.enabled
+    assert "dumbo" in config.voice.wake_words
+    assert "jarvis" in config.voice.wake_words
 
 
 @pytest.mark.parametrize(

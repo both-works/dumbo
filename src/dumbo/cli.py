@@ -123,7 +123,7 @@ def chat(
 
 @app.command()
 def voice() -> None:
-    """Start the local Enter-to-record fixed-window voice loop when configured."""
+    """Start the local voice command loop."""
     runtime = _build_runtime()
     from dumbo.voice.loop import run_enter_to_record_voice_loop
 

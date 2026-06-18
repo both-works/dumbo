@@ -161,6 +161,7 @@ class AgentLoop:
         user_input: str,
         *,
         approval_mode: ApprovalMode = ApprovalMode.INTERACTIVE,
+        approval_callback: ApprovalCallback | None = None,
         prefer_ollama: bool = True,
     ) -> AgentResponse:
         context = ToolContext(
@@ -175,12 +176,15 @@ class AgentLoop:
 
         local_call = parse_local_intent(user_input)
         if local_call is not None:
+            callback = (
+                approval_callback if approval_callback is not None else self.approval_callback
+            )
             result = self.executor.execute_tool(
                 local_call.name,
                 local_call.args,
                 context,
                 approval_mode=approval_mode,
-                approval_callback=self.approval_callback,
+                approval_callback=callback,
             )
             return AgentResponse(
                 final_text=_summarize_tool_result(local_call.name, result, local_call.args),
@@ -240,12 +244,15 @@ class AgentLoop:
 
             messages.append(message)
             for call in calls:
+                callback = (
+                    approval_callback if approval_callback is not None else self.approval_callback
+                )
                 result = self.executor.execute_tool(
                     call.name,
                     call.args,
                     context,
                     approval_mode=approval_mode,
-                    approval_callback=self.approval_callback,
+                    approval_callback=callback,
                 )
                 result_dict = asdict(result)
                 tool_results.append(result_dict)

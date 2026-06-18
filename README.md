@@ -97,8 +97,12 @@ Optional desktop/voice extras:
 .\.venv\Scripts\python.exe -m pip install -e ".[desktop,voice]"
 ```
 
-Voice is currently an Enter-to-record MVP: press Enter to record a fixed five-second
-window. The configured `voice.push_to_talk_key` is reserved for a later real hotkey loop.
+Voice mode is a local command loop: press Enter, speak naturally, and Dumbo transcribes
+the command, routes it through the same agent and policy engine, then speaks the answer
+when local TTS is available. You can also type into the `voice>` prompt as a fallback.
+Wake words such as "Dumbo" and "Jarvis" are stripped, so phrases like "Dumbo, open a
+word document" map to the same action as typed chat. Risky actions still require
+approval; in voice mode you can type approval or press Enter and answer by voice.
 
 ## Local Data
 

@@ -38,9 +38,11 @@ PowerShell commands run only through the `run_powershell` tool. Dangerous patter
 
 ## Voice Privacy
 
-Voice is Enter-to-record fixed-window first. Raw microphone audio is deleted after
+Voice is local Enter-to-record command mode. Raw microphone audio is deleted after
 transcription unless `voice.save_audio=true` is configured, in which case WAV files
-are saved under Dumbo's cache audio directory.
+are saved under Dumbo's cache audio directory. Voice commands still route through the
+same policy and audit engine as typed commands. Risky actions require confirmation;
+voice mode accepts typed confirmation or a short voice confirmation window.
 
 ## PowerShell Classifier
 

@@ -50,11 +50,17 @@ filesystem:
   allow_sensitive_reads: true
 
 voice:
-  enabled: false
+  enabled: true
   push_to_talk_key: ctrl+space
   stt_model: small.en
   tts_voice: ""
+  tts_enabled: true
   save_audio: false
+  record_seconds: 7.0
+  confirmation_seconds: 3.0
+  wake_words:
+    - dumbo
+    - jarvis
 
 browser:
   headless: false

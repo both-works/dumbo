@@ -14,15 +14,45 @@ class PiperTts:
 
     def speak(self, text: str) -> None:
         exe = shutil.which(self.executable)
-        if exe is None:
-            raise RuntimeError("Piper executable was not found on PATH.")
-        if self.voice_path is None or not self.voice_path.exists():
-            raise RuntimeError("A Piper voice model path must be configured before speech output.")
+        if exe is None or self.voice_path is None or not self.voice_path.exists():
+            _speak_windows_sapi(text)
+            return
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav:
             wav_path = Path(wav.name)
-        command = [exe, "--model", str(self.voice_path), "--output_file", str(wav_path)]
-        subprocess.run(command, input=text, text=True, check=True)
-        _play_wav(wav_path)
+        try:
+            command = [exe, "--model", str(self.voice_path), "--output_file", str(wav_path)]
+            subprocess.run(command, input=text, text=True, check=True)
+            _play_wav(wav_path)
+        finally:
+            wav_path.unlink(missing_ok=True)
+
+
+def _speak_windows_sapi(text: str) -> None:
+    command = [
+        "powershell",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        (
+            "Add-Type -AssemblyName System.Speech; "
+            "$speaker = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+            "$speaker.Rate = 0; "
+            "$speaker.Speak([Console]::In.ReadToEnd())"
+        ),
+    ]
+    completed = subprocess.run(
+        command,
+        input=text[:2000],
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=60,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "Piper is not configured and Windows speech synthesis failed: "
+            f"{completed.stderr or completed.stdout}"
+        )
 
 
 def _play_wav(path: Path) -> None:
