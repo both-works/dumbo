@@ -141,7 +141,11 @@ def test_voice_temp_audio_deleted_when_save_audio_false(tmp_path: Path) -> None:
     audio.write_bytes(b"wav")
     stt = MockStt()
     text = transcribe_fixed_window(
-        stt, VoiceConfig(save_audio=False), tmp_path / "cache", recorder=lambda **_: audio
+        stt,
+        VoiceConfig(save_audio=False),
+        tmp_path / "cache",
+        recorder=lambda **_: audio,
+        volume_controller=lambda _level: None,
     )
     assert text == "hello"
     assert stt.seen_path == audio
@@ -211,6 +215,8 @@ def test_checked_in_config_is_owner_full_access() -> None:
     assert config.model.top_p == 0.9
     assert config.model.reasoning_effort == "high"
     assert config.voice.enabled
+    assert config.voice.lower_system_volume_on_record
+    assert config.voice.recording_volume_percent == 5
     assert "dumbo" in config.voice.wake_words
     assert "jarvis" in config.voice.wake_words
 

@@ -33,6 +33,8 @@ class VoiceConfig:
     save_audio: bool = False
     record_seconds: float = 7.0
     confirmation_seconds: float = 3.0
+    lower_system_volume_on_record: bool = True
+    recording_volume_percent: int = 5
     wake_words: tuple[str, ...] = ("dumbo", "jarvis")
 
 
@@ -166,6 +168,10 @@ def load_config(config_path: Path | None = None) -> DumboConfig:
             save_audio=bool(voice_data.get("save_audio", False)),
             record_seconds=float(voice_data.get("record_seconds", 7.0)),
             confirmation_seconds=float(voice_data.get("confirmation_seconds", 3.0)),
+            lower_system_volume_on_record=bool(
+                voice_data.get("lower_system_volume_on_record", True)
+            ),
+            recording_volume_percent=int(voice_data.get("recording_volume_percent", 5)),
             wake_words=_string_tuple(voice_data.get("wake_words", ["dumbo", "jarvis"])),
         ),
         browser=BrowserConfig(

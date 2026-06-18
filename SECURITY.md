@@ -42,7 +42,9 @@ Voice is local Enter-to-record command mode. Raw microphone audio is deleted aft
 transcription unless `voice.save_audio=true` is configured, in which case WAV files
 are saved under Dumbo's cache audio directory. Voice commands still route through the
 same policy and audit engine as typed commands. Risky actions require confirmation;
-voice mode accepts typed confirmation or a short voice confirmation window.
+voice mode accepts typed confirmation or a short voice confirmation window. Before each
+voice recording window, Dumbo lowers Windows system volume to
+`voice.recording_volume_percent`, which defaults to 5.
 
 ## PowerShell Classifier
 

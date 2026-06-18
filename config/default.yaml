@@ -58,6 +58,8 @@ voice:
   save_audio: false
   record_seconds: 7.0
   confirmation_seconds: 3.0
+  lower_system_volume_on_record: true
+  recording_volume_percent: 5
   wake_words:
     - dumbo
     - jarvis

@@ -131,8 +131,60 @@ def test_transcribe_fixed_window_deletes_unsaved_audio(tmp_path: Path) -> None:
         tmp_path,
         seconds=2.5,
         recorder=lambda **kwargs: audio,
+        volume_controller=lambda _level: None,
     )
 
     assert text == "hello"
     assert not audio.exists()
     assert stt.paths == [audio]
+
+
+def test_transcribe_fixed_window_lowers_volume_before_recording(tmp_path: Path) -> None:
+    audio = tmp_path / "voice.wav"
+    audio.write_bytes(b"wav")
+    events: list[tuple[str, float | int]] = []
+
+    def lower_volume(level: int) -> None:
+        events.append(("volume", level))
+
+    def record_audio(**kwargs):
+        events.append(("record", kwargs["seconds"]))
+        return audio
+
+    text = transcribe_fixed_window(
+        FakeStt("open chrome"),
+        VoiceConfig(
+            enabled=True,
+            save_audio=False,
+            lower_system_volume_on_record=True,
+            recording_volume_percent=5,
+        ),
+        tmp_path,
+        seconds=3.0,
+        recorder=record_audio,
+        volume_controller=lower_volume,
+    )
+
+    assert text == "open chrome"
+    assert events == [("volume", 5), ("record", 3.0)]
+
+
+def test_transcribe_fixed_window_can_skip_volume_control(tmp_path: Path) -> None:
+    audio = tmp_path / "voice.wav"
+    audio.write_bytes(b"wav")
+    volume_calls: list[int] = []
+
+    text = transcribe_fixed_window(
+        FakeStt("hello"),
+        VoiceConfig(
+            enabled=True,
+            save_audio=False,
+            lower_system_volume_on_record=False,
+        ),
+        tmp_path,
+        recorder=lambda **kwargs: audio,
+        volume_controller=volume_calls.append,
+    )
+
+    assert text == "hello"
+    assert volume_calls == []

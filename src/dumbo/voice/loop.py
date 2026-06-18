@@ -11,8 +11,10 @@ from dumbo.config import VoiceConfig
 from dumbo.voice.microphone import record_fixed_seconds
 from dumbo.voice.stt import FasterWhisperStt
 from dumbo.voice.tts import PiperTts
+from dumbo.voice.volume import set_system_volume_percent
 
 Recorder = Callable[..., Path]
+VolumeController = Callable[[int], None]
 InputFunc = Callable[[str], str]
 OutputFunc = Callable[[str], None]
 
@@ -173,7 +175,10 @@ def transcribe_fixed_window(
     *,
     seconds: float | None = None,
     recorder: Recorder = record_fixed_seconds,
+    volume_controller: VolumeController = set_system_volume_percent,
 ) -> str:
+    if voice.lower_system_volume_on_record:
+        volume_controller(voice.recording_volume_percent)
     audio_path = recorder(
         seconds=seconds or voice.record_seconds,
         save_audio=voice.save_audio,

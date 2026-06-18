@@ -103,6 +103,8 @@ when local TTS is available. You can also type into the `voice>` prompt as a fal
 Wake words such as "Dumbo" and "Jarvis" are stripped, so phrases like "Dumbo, open a
 word document" map to the same action as typed chat. Risky actions still require
 approval; in voice mode you can type approval or press Enter and answer by voice.
+Before each recording window, Dumbo lowers the Windows system volume to the configured
+`voice.recording_volume_percent` value, which defaults to 5.
 
 ## Local Data
 
