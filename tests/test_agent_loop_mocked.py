@@ -4,6 +4,7 @@ from typing import Any
 from dumbo.agent.loop import AgentLoop, parse_local_intent
 from dumbo.config import DumboConfig, FilesystemConfig, ModelProfile
 from dumbo.tools.audit import AuditLog
+from dumbo.tools.base import BaseTool, RiskLevel, ToolContext, ToolResult
 from dumbo.tools.filesystem import ListDirTool
 from dumbo.tools.policy import PolicyEngine
 from dumbo.tools.registry import ToolRegistry
@@ -39,6 +40,19 @@ class FakeChatClient:
                 }
             }
         return {"message": {"role": "assistant", "content": "done"}}
+
+
+class FakeOpenAppTool(BaseTool):
+    name = "open_app"
+    risk_level = RiskLevel.LOW_RISK_OPEN
+    parameters_schema = {
+        "type": "object",
+        "properties": {"name_or_path": {"type": "string"}},
+        "required": ["name_or_path"],
+    }
+
+    def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
+        return ToolResult.success("Opened app.", {"target": args["name_or_path"]})
 
 
 def test_agent_loop_executes_mocked_tool_call(tmp_path: Path) -> None:
@@ -92,6 +106,30 @@ def test_local_list_dir_response_includes_entry_names(tmp_path: Path) -> None:
 
     response = agent.run(f"list {tmp_path}", prefer_ollama=False)
     assert "visible.txt" in response.final_text.splitlines()
+
+
+def test_local_open_app_response_is_human_readable(tmp_path: Path) -> None:
+    config = DumboConfig()
+    profile = ModelProfile(
+        name="test",
+        planner_model="mock",
+        vision_model="mock-v",
+        embedding_model="mock-e",
+        stt_model="none",
+        tts_engine="none",
+    )
+    audit = AuditLog(tmp_path / "audit.sqlite3")
+    agent = AgentLoop(
+        config=config,
+        profile=profile,
+        registry=ToolRegistry([FakeOpenAppTool()]),
+        policy=PolicyEngine(config),
+        audit=audit,
+        ollama=FakeChatClient(tmp_path),
+    )
+
+    response = agent.run("open word", prefer_ollama=False)
+    assert response.final_text == "Opened word."
 
 
 def test_parse_local_intent_lists_exact_windows_path() -> None:

@@ -52,7 +52,7 @@ The checked-in default config is set for this PC owner workflow:
 - sensitive path reads are allowed
 - safe writes are allowed in trusted mode
 - privileged actions can be requested, but still require confirmation
-- common app aliases include Chrome, Edge, Firefox, and VS Code
+- common app aliases include Chrome, Edge, Firefox, Microsoft Office apps, and VS Code
 
 Shell commands, destructive file operations, privileged actions, coordinate clicks,
 typing into external apps, app closes, and external commitments remain confirmation

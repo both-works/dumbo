@@ -176,7 +176,7 @@ class AgentLoop:
                 approval_callback=self.approval_callback,
             )
             return AgentResponse(
-                final_text=_summarize_tool_result(local_call.name, result),
+                final_text=_summarize_tool_result(local_call.name, result, local_call.args),
                 tool_results=[asdict(result)],
                 stopped_reason="local_intent",
             )
@@ -248,7 +248,7 @@ class AgentLoop:
                 )
                 if not result.ok:
                     return AgentResponse(
-                        final_text=_summarize_tool_result(call.name, result),
+                        final_text=_summarize_tool_result(call.name, result, call.args),
                         tool_results=tool_results,
                         stopped_reason="tool_blocked_or_failed",
                     )
@@ -363,7 +363,9 @@ def _extract_windows_path(text: str) -> str | None:
     return candidate or None
 
 
-def _summarize_tool_result(tool_name: str, result: ToolResult) -> str:
+def _summarize_tool_result(
+    tool_name: str, result: ToolResult, args: dict[str, Any] | None = None
+) -> str:
     if result.ok and tool_name == "list_allowed_roots":
         roots = result.data.get("roots", [])
         if isinstance(roots, list):
@@ -372,9 +374,24 @@ def _summarize_tool_result(tool_name: str, result: ToolResult) -> str:
         entries = result.data.get("entries", [])
         if isinstance(entries, list):
             return "\n".join(str(entry.get("name", "")) for entry in entries if entry.get("name"))
+    if tool_name == "open_app":
+        target = _display_target(args, result)
+        if result.ok:
+            return f"Opened {target}."
+        if result.error and "Confirmation required" in result.error:
+            return f"I did not open {target} because approval was not granted."
+        return f"I could not open {target}: {result.error or result.message}"
     if result.ok:
-        return f"{tool_name}: {result.message}"
-    return f"{tool_name}: {result.message}" + (f" Error: {result.error}" if result.error else "")
+        return result.message
+    return result.message + (f" Error: {result.error}" if result.error else "")
+
+
+def _display_target(args: dict[str, Any] | None, result: ToolResult) -> str:
+    if args and args.get("name_or_path"):
+        return str(args["name_or_path"]).strip()
+    if result.data.get("target"):
+        return str(result.data["target"]).strip()
+    return "the app"
 
 
 class _UnknownTool(BaseTool):

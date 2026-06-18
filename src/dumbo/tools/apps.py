@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,19 @@ DEFAULT_APP_ALIASES = {
     "edge": "msedge",
     "microsoft edge": "msedge",
     "firefox": "firefox",
+    "word": "winword.exe",
+    "microsoft word": "winword.exe",
+    "ms word": "winword.exe",
+    "excel": "excel.exe",
+    "microsoft excel": "excel.exe",
+    "powerpoint": "powerpnt.exe",
+    "power point": "powerpnt.exe",
+    "microsoft powerpoint": "powerpnt.exe",
+    "outlook": "outlook.exe",
+    "microsoft outlook": "outlook.exe",
+    "onenote": "onenote.exe",
+    "one note": "onenote.exe",
+    "microsoft onenote": "onenote.exe",
     "vscode": "code",
     "vs code": "code",
     "visual studio code": "code",
@@ -188,7 +202,7 @@ def apps_tools(config: DumboConfig) -> list[BaseTool]:
 
 
 def _looks_like_path(value: str) -> bool:
-    return "\\" in value or "/" in value or value.endswith(".exe") or Path(value).is_absolute()
+    return "\\" in value or "/" in value or Path(value).is_absolute()
 
 
 def _is_simple_app_name(value: str) -> bool:
@@ -196,11 +210,23 @@ def _is_simple_app_name(value: str) -> bool:
 
 
 def _open_app_target(target: str) -> None:
+    path = _resolve_existing_path(target)
+    if path is not None:
+        _start_path(path)
+        return
     executable = shutil.which(target)
     if executable is not None:
         subprocess.Popen([executable], shell=False)
         return
     if sys.platform == "win32":
+        app_path = _windows_app_path(target)
+        if app_path is not None:
+            _start_path(app_path)
+            return
+        shortcut = _start_menu_shortcut(target)
+        if shortcut is not None:
+            _start_path(shortcut)
+            return
         completed = subprocess.run(
             [
                 "powershell",
@@ -217,7 +243,108 @@ def _open_app_target(target: str) -> None:
         )
         if completed.returncode == 0:
             return
-    subprocess.Popen([target], shell=False)
+    try:
+        subprocess.Popen([target], shell=False)
+    except OSError as exc:
+        raise FileNotFoundError(
+            f"{target} was not found on PATH, Windows App Paths, or the Start Menu."
+        ) from exc
+
+
+def _resolve_existing_path(target: str) -> Path | None:
+    if not _looks_like_path(target):
+        return None
+    path = Path(target).expanduser()
+    return path if path.exists() else None
+
+
+def _start_path(path: Path) -> None:
+    if sys.platform == "win32":
+        os.startfile(str(path))  # type: ignore[attr-defined]
+    else:
+        subprocess.Popen([str(path)], shell=False)
+
+
+def _windows_app_path(target: str) -> Path | None:
+    if sys.platform != "win32" or _looks_like_path(target):
+        return None
+    try:
+        import winreg
+    except ImportError:
+        return None
+
+    subkey_base = r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths"
+    access_flags = [0]
+    for flag_name in ("KEY_WOW64_64KEY", "KEY_WOW64_32KEY"):
+        flag = getattr(winreg, flag_name, None)
+        if flag is not None:
+            access_flags.append(flag)
+
+    for name in _app_path_names(target):
+        subkey = f"{subkey_base}\\{name}"
+        for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            for access in access_flags:
+                try:
+                    with winreg.OpenKey(hive, subkey, 0, winreg.KEY_READ | access) as key:
+                        value, _value_type = winreg.QueryValueEx(key, "")
+                except OSError:
+                    continue
+                path = _path_from_command_value(str(value))
+                if path is not None:
+                    return path
+    return None
+
+
+def _app_path_names(target: str) -> list[str]:
+    cleaned = target.strip()
+    if not cleaned:
+        return []
+    names = [cleaned]
+    if not cleaned.casefold().endswith(".exe"):
+        names.append(f"{cleaned}.exe")
+    return names
+
+
+def _path_from_command_value(value: str) -> Path | None:
+    command = value.strip()
+    if not command:
+        return None
+    if command.startswith('"'):
+        end = command.find('"', 1)
+        candidate = command[1:end] if end > 1 else command.strip('"')
+    else:
+        exe_index = command.casefold().find(".exe")
+        candidate = command[: exe_index + 4] if exe_index >= 0 else command.split()[0]
+    path = Path(candidate).expanduser()
+    return path if path.exists() else None
+
+
+def _start_menu_shortcut(target: str) -> Path | None:
+    if sys.platform != "win32":
+        return None
+    wanted = _normalise_app_label(target)
+    if not wanted:
+        return None
+    roots = [
+        os.environ.get("PROGRAMDATA", ""),
+        os.environ.get("APPDATA", ""),
+    ]
+    menu_roots = [
+        Path(root) / "Microsoft" / "Windows" / "Start Menu" / "Programs" for root in roots if root
+    ]
+    for root in menu_roots:
+        if not root.exists():
+            continue
+        for shortcut in root.rglob("*.lnk"):
+            label = _normalise_app_label(shortcut.stem)
+            if label == wanted or wanted in label:
+                return shortcut
+    return None
+
+
+def _normalise_app_label(value: str) -> str:
+    stem = Path(value).stem if value.casefold().endswith(".exe") else value
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", stem.casefold()).split())
 
 
 def _path_is_allowlisted(path: Path, allowlist: tuple[Path, ...]) -> bool:

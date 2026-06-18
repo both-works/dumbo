@@ -11,6 +11,19 @@ app:
     edge: msedge
     microsoft edge: msedge
     firefox: firefox
+    word: winword.exe
+    microsoft word: winword.exe
+    ms word: winword.exe
+    excel: excel.exe
+    microsoft excel: excel.exe
+    powerpoint: powerpnt.exe
+    power point: powerpnt.exe
+    microsoft powerpoint: powerpnt.exe
+    outlook: outlook.exe
+    microsoft outlook: outlook.exe
+    onenote: onenote.exe
+    one note: onenote.exe
+    microsoft onenote: onenote.exe
     vscode: code
     vs code: code
     visual studio code: code

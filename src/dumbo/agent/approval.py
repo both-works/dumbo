@@ -44,22 +44,19 @@ def can_noninteractively_approve(
 
 
 def prompt_for_approval(request: ApprovalRequest) -> bool:
-    redacted_args = json.dumps(redact(request.args), ensure_ascii=True, sort_keys=True)
     print("Confirmation required:")
-    print(f"- Tool: {request.tool_name}")
-    print(f"- Args: {redacted_args}")
+    print(f"- Action: {request.expected_impact}")
     print(f"- Risk: {request.risk_level.value}")
-    print(f"- Policy reason: {request.policy_reason}")
-    if request.dry_run_result is None:
-        print("- Dry run: unavailable")
-    else:
-        dry_run = {
-            "ok": request.dry_run_result.ok,
-            "message": request.dry_run_result.message,
-            "data": redact(request.dry_run_result.data),
-            "error": request.dry_run_result.error,
-        }
-        print(f"- Dry run: {json.dumps(dry_run, ensure_ascii=True, sort_keys=True)}")
-    print(f"- Expected impact: {request.expected_impact}")
-    print(f"- Rollback notes: {request.rollback_notes}")
+    print(f"- Reason: {request.policy_reason}")
+    redacted_args = redact(request.args)
+    if request.tool_name == "run_powershell" and isinstance(redacted_args, dict):
+        command = redacted_args.get("command")
+        if command:
+            print(f"- Command: {command}")
+    elif request.risk_level not in {RiskLevel.WRITE_SAFE, RiskLevel.LOW_RISK_OPEN}:
+        print(f"- Inputs: {json.dumps(redacted_args, ensure_ascii=True, sort_keys=True)}")
+    if request.dry_run_result is not None and request.dry_run_result.message:
+        print(f"- Preview: {request.dry_run_result.message}")
+    if request.rollback_notes != "No automatic rollback is available.":
+        print(f"- Rollback: {request.rollback_notes}")
     return input("Approve? y/N: ").strip().casefold() == "y"

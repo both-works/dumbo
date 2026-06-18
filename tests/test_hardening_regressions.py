@@ -185,6 +185,13 @@ def test_chrome_alias_is_low_risk_open() -> None:
     assert tool.classify_risk({"name_or_path": "chrome"}) == RiskLevel.LOW_RISK_OPEN
 
 
+@pytest.mark.parametrize("name", ["word", "microsoft word", "excel", "powerpoint", "outlook"])
+def test_office_aliases_are_low_risk_open(name: str) -> None:
+    tool = OpenAppTool(DumboConfig())
+    tool.validate_args({"name_or_path": name})
+    assert tool.classify_risk({"name_or_path": name}) == RiskLevel.LOW_RISK_OPEN
+
+
 def test_unknown_simple_app_name_can_reach_policy_but_shell_syntax_is_rejected() -> None:
     tool = OpenAppTool(DumboConfig())
     tool.validate_args({"name_or_path": "some-local-app"})
