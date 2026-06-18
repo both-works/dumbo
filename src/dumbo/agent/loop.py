@@ -36,6 +36,9 @@ class ChatClient(Protocol):
     ) -> dict[str, Any]: ...
 
 
+MAX_LIST_ENTRIES_IN_REPLY = 40
+
+
 class ToolExecutor:
     def __init__(self, registry: ToolRegistry, policy: PolicyEngine, audit: AuditLog):
         self.registry = registry
@@ -166,6 +169,10 @@ class AgentLoop:
             timeout_seconds=self.config.app.tool_timeout_seconds,
         )
 
+        local_answer = parse_local_answer(user_input, self.config)
+        if local_answer is not None:
+            return AgentResponse(final_text=local_answer, stopped_reason="local_answer")
+
         local_call = parse_local_intent(user_input)
         if local_call is not None:
             result = self.executor.execute_tool(
@@ -199,15 +206,17 @@ class AgentLoop:
             },
             {"role": "user", "content": user_input},
         ]
+        tools_enabled = should_enable_tools(user_input)
         tool_results: list[dict[str, Any]] = []
         for _ in range(self.config.app.max_tool_calls_per_request):
             try:
                 chat_args: dict[str, Any] = {
                     "model": self.profile.planner_model,
                     "messages": messages,
-                    "tools": self.registry.tool_schemas(),
                     "stream": False,
                 }
+                if tools_enabled:
+                    chat_args["tools"] = self.registry.tool_schemas()
                 options = self._ollama_options()
                 if options:
                     chat_args["options"] = options
@@ -314,17 +323,21 @@ def parse_local_intent(user_input: str) -> ToolCall | None:
 
     if "allowed roots" in lowered or "filesystem roots" in lowered:
         return ToolCall("list_allowed_roots", {})
-    if windows_path and re.search(r"\b(list|show)\b", lowered):
+    if windows_path and re.search(r"\b(list|show)\b|\bwhat(?:'s| is)\b.*\b(in|inside)\b", lowered):
         return ToolCall("list_dir", {"path": windows_path})
-    if re.search(r"\blist\b.*\bdownloads\b", lowered):
+    if re.search(r"\b(list|show)\b.*\bdownloads\b", lowered) or re.search(
+        r"\bwhat(?:'s| is)\b.*\b(in|inside)\b.*\bdownloads\b", lowered
+    ):
         return ToolCall("list_dir", {"path": str(home / "Downloads")})
-    if re.search(r"\blist\b.*\bdocuments\b", lowered):
+    if re.search(r"\b(list|show)\b.*\bdocuments\b", lowered) or re.search(
+        r"\bwhat(?:'s| is)\b.*\b(in|inside)\b.*\bdocuments\b", lowered
+    ):
         return ToolCall("list_dir", {"path": str(home / "Documents")})
     if re.search(r"\bopen\b.*\bnotepad\b", lowered):
         return ToolCall("open_app", {"name_or_path": "notepad"})
     open_match = re.match(r"open\s+(?:app\s+)?(.+?)\s*$", text, flags=re.IGNORECASE)
     if open_match:
-        target = open_match.group(1).strip().rstrip(".")
+        target = _normalise_open_target(open_match.group(1).strip().rstrip("."))
         if target and not _extract_windows_path(target):
             return ToolCall("open_app", {"name_or_path": target})
     if lowered.startswith("run powershell "):
@@ -347,6 +360,74 @@ def parse_local_intent(user_input: str) -> ToolCall | None:
     if lowered.startswith("delete this file "):
         return ToolCall("delete_file", {"path": text[len("delete this file ") :].strip()})
     return None
+
+
+def parse_local_answer(user_input: str, config: DumboConfig) -> str | None:
+    text = " ".join(user_input.strip().split())
+    lowered = text.casefold().rstrip("?! .")
+    if lowered in {"who are you", "what are you", "what is dumbo", "who is dumbo"}:
+        return (
+            "I'm Dumbo, your local desktop assistant. I run on this PC, use the local "
+            "Ollama model, and can help with conversation, files, apps, browser/desktop "
+            "automation, memory, and PowerShell through audited tools."
+        )
+    if lowered in {"what can you do", "what can dumbo do", "help", "show help"}:
+        roots = ", ".join(str(root) for root in config.allowed_roots)
+        return (
+            "I can answer questions, open apps like Chrome or Word, inspect and manage files, "
+            "search your drives, remember facts, use browser and desktop automation, and run "
+            "PowerShell when you approve it. Current filesystem roots: "
+            f"{roots}."
+        )
+    return None
+
+
+def should_enable_tools(user_input: str) -> bool:
+    lowered = user_input.casefold()
+    if _extract_windows_path(user_input):
+        return True
+    action_patterns = [
+        r"\b(open|launch|start|close|focus)\b",
+        r"\b(list|show|read|search|find|scan)\b.*\b(file|folder|directory|drive|download|document|root)\b",
+        r"\bwhat(?:'s| is)\b.*\b(in|inside)\b.*\b(downloads|documents|folder|directory|drive)\b",
+        r"\b(create|write|save|append|overwrite|move|rename|delete|remove)\b",
+        r"\b(run|execute)\b.*\b(powershell|command|script)\b",
+        r"\bpowershell\b",
+        r"\b(click|type|press|hotkey|screenshot)\b",
+        r"\bremember\b|\bforget\b|\bmemory\b",
+        r"\bgo to\b.*\bhttps?://",
+        r"https?://",
+    ]
+    return any(re.search(pattern, lowered) for pattern in action_patterns)
+
+
+def _normalise_open_target(target: str) -> str:
+    lowered = " ".join(target.casefold().split())
+    replacements = {
+        "a word document": "word",
+        "word document": "word",
+        "new word document": "word",
+        "a microsoft word document": "word",
+        "microsoft word document": "word",
+        "a spreadsheet": "excel",
+        "spreadsheet": "excel",
+        "an excel spreadsheet": "excel",
+        "excel spreadsheet": "excel",
+        "a presentation": "powerpoint",
+        "presentation": "powerpoint",
+        "a powerpoint presentation": "powerpoint",
+        "powerpoint presentation": "powerpoint",
+        "browser": "chrome",
+        "a browser": "chrome",
+        "web browser": "chrome",
+    }
+    if lowered in replacements:
+        return replacements[lowered]
+    for article in ("a ", "an ", "the "):
+        if lowered.startswith(article):
+            lowered = lowered[len(article) :]
+            break
+    return lowered
 
 
 def _extract_windows_path(text: str) -> str | None:
@@ -373,7 +454,11 @@ def _summarize_tool_result(
     if result.ok and tool_name == "list_dir":
         entries = result.data.get("entries", [])
         if isinstance(entries, list):
-            return "\n".join(str(entry.get("name", "")) for entry in entries if entry.get("name"))
+            names = [str(entry.get("name", "")) for entry in entries if entry.get("name")]
+            visible = names[:MAX_LIST_ENTRIES_IN_REPLY]
+            if len(names) > MAX_LIST_ENTRIES_IN_REPLY:
+                visible.append(f"... and {len(names) - MAX_LIST_ENTRIES_IN_REPLY} more.")
+            return "\n".join(visible)
     if tool_name == "open_app":
         target = _display_target(args, result)
         if result.ok:
