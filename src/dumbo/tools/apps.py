@@ -15,6 +15,14 @@ DEFAULT_APP_ALIASES = {
     "calculator": "calc",
     "calc": "calc",
     "explorer": "explorer",
+    "chrome": "chrome",
+    "google chrome": "chrome",
+    "edge": "msedge",
+    "microsoft edge": "msedge",
+    "firefox": "firefox",
+    "vscode": "code",
+    "vs code": "code",
+    "visual studio code": "code",
     "cmd": "cmd",
     "powershell": "powershell",
     "pwsh": "pwsh",
@@ -63,9 +71,9 @@ class OpenAppTool(BaseTool):
             if path.suffix.casefold() != ".exe":
                 raise ToolValidationError("Explicit app paths must point to .exe files.")
             return
-        if target.casefold() not in aliases:
+        if target.casefold() not in aliases and not _is_simple_app_name(target):
             raise ToolValidationError(
-                f"Unknown app alias: {target}. Configure app.app_aliases to allow it."
+                f"Unknown app alias: {target}. Use a simple app name or configure app.app_aliases."
             )
 
     def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
@@ -82,9 +90,11 @@ class OpenAppTool(BaseTool):
                 subprocess.Popen([str(path)])
         else:
             aliases = {**DEFAULT_APP_ALIASES, **self.config.app.app_aliases}
-            target = aliases[target.casefold()]
-            executable = shutil.which(target) or target
-            subprocess.Popen([executable], shell=False)
+            target = aliases.get(target.casefold(), target)
+            try:
+                _open_app_target(target)
+            except OSError as exc:
+                return ToolResult.failure(f"Could not open app {target}: {exc}")
         return ToolResult.success(f"Opened app {target}.", {"target": target})
 
     def expected_impact(self, args: dict[str, Any]) -> str:
@@ -179,6 +189,35 @@ def apps_tools(config: DumboConfig) -> list[BaseTool]:
 
 def _looks_like_path(value: str) -> bool:
     return "\\" in value or "/" in value or value.endswith(".exe") or Path(value).is_absolute()
+
+
+def _is_simple_app_name(value: str) -> bool:
+    return bool(value) and not any(char in value for char in "\r\n;&|<>")
+
+
+def _open_app_target(target: str) -> None:
+    executable = shutil.which(target)
+    if executable is not None:
+        subprocess.Popen([executable], shell=False)
+        return
+    if sys.platform == "win32":
+        completed = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Start-Process -FilePath $args[0]",
+                target,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+        if completed.returncode == 0:
+            return
+    subprocess.Popen([target], shell=False)
 
 
 def _path_is_allowlisted(path: Path, allowlist: tuple[Path, ...]) -> bool:

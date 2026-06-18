@@ -143,7 +143,14 @@ class SearchFilesTool(FilesystemPolicyMixin, BaseTool):
             if not root.is_dir():
                 continue
             for current, dirs, files in os.walk(root):
-                dirs[:] = [name for name in dirs if not _is_hidden_or_sensitive(name)]
+                dirs[:] = [
+                    name
+                    for name in dirs
+                    if not _is_search_excluded(
+                        name,
+                        allow_sensitive=self.config.filesystem.allow_sensitive_reads,
+                    )
+                ]
                 for filename in files:
                     if query not in filename.casefold():
                         continue
@@ -338,8 +345,10 @@ def _open_path(path: Path) -> None:
         subprocess.Popen(["xdg-open", str(path)])
 
 
-def _is_hidden_or_sensitive(name: str) -> bool:
+def _is_search_excluded(name: str, *, allow_sensitive: bool) -> bool:
     lowered = name.casefold()
+    if allow_sensitive:
+        return False
     return lowered.startswith(".") or any(
         fnmatch.fnmatch(lowered, pattern) for pattern in SENSITIVE_PATTERNS
     )

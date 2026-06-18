@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from dumbo.paths import repository_root, user_default_roots
+from dumbo.paths import repository_root, system_roots, user_default_roots
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,7 @@ class OllamaConfig:
 class FilesystemConfig:
     project_roots: tuple[Path, ...] = ()
     allow_sensitive_reads: bool = False
+    include_available_drives: bool = False
 
 
 @dataclass(frozen=True)
@@ -87,7 +88,10 @@ class DumboConfig:
 
     @property
     def allowed_roots(self) -> list[Path]:
-        return [*user_default_roots(), *self.filesystem.project_roots]
+        roots = [*user_default_roots(), *self.filesystem.project_roots]
+        if self.filesystem.include_available_drives:
+            roots.extend(system_roots())
+        return roots
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -141,6 +145,7 @@ def load_config(config_path: Path | None = None) -> DumboConfig:
         filesystem=FilesystemConfig(
             project_roots=_path_tuple(filesystem_data.get("project_roots", [])),
             allow_sensitive_reads=bool(filesystem_data.get("allow_sensitive_reads", False)),
+            include_available_drives=bool(filesystem_data.get("include_available_drives", False)),
         ),
         voice=VoiceConfig(**voice_data),
         browser=BrowserConfig(

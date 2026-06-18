@@ -8,7 +8,14 @@ import pytest
 from dumbo.agent.approval import ApprovalMode
 from dumbo.agent.loop import ToolExecutor
 from dumbo.agent.model_router import build_doctor_report, model_is_available
-from dumbo.config import AppConfig, DumboConfig, FilesystemConfig, ModelProfile, VoiceConfig
+from dumbo.config import (
+    AppConfig,
+    DumboConfig,
+    FilesystemConfig,
+    ModelProfile,
+    VoiceConfig,
+    load_config,
+)
 from dumbo.paths import AppPaths
 from dumbo.skills.runner import substitute_placeholders
 from dumbo.skills.schema import SkillDefinition, SkillStep, validate_skill_against_registry
@@ -169,6 +176,30 @@ def test_arbitrary_executable_path_requires_confirmation_even_in_trusted_mode(
     config = DumboConfig(app=AppConfig(trusted_mode=True))
     decision = PolicyEngine(config).assess(OpenAppTool(config), {"name_or_path": str(exe)})
     assert decision.action == PolicyAction.REQUIRE_CONFIRMATION
+
+
+def test_chrome_alias_is_low_risk_open() -> None:
+    config = DumboConfig()
+    tool = OpenAppTool(config)
+    tool.validate_args({"name_or_path": "chrome"})
+    assert tool.classify_risk({"name_or_path": "chrome"}) == RiskLevel.LOW_RISK_OPEN
+
+
+def test_unknown_simple_app_name_can_reach_policy_but_shell_syntax_is_rejected() -> None:
+    tool = OpenAppTool(DumboConfig())
+    tool.validate_args({"name_or_path": "some-local-app"})
+    assert tool.classify_risk({"name_or_path": "some-local-app"}) == RiskLevel.WRITE_SAFE
+    with pytest.raises(ToolValidationError):
+        tool.validate_args({"name_or_path": "chrome; Remove-Item C:\\"})
+
+
+def test_checked_in_config_is_owner_full_access() -> None:
+    config = load_config()
+    assert config.app.trusted_mode
+    assert config.app.enable_privileged_tools
+    assert config.filesystem.include_available_drives
+    assert config.filesystem.allow_sensitive_reads
+    assert "chrome" in config.app.app_aliases
 
 
 @pytest.mark.parametrize(

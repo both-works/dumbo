@@ -41,6 +41,35 @@ def test_list_read_and_search_inside_allowed_root(tmp_path: Path) -> None:
     assert search_result.data["results"][0]["name"] == "invoice-123.pdf"
 
 
+def test_sensitive_search_is_included_only_when_enabled(tmp_path: Path) -> None:
+    secret_dir = tmp_path / ".ssh"
+    secret_dir.mkdir()
+    secret_file = secret_dir / "id_ed25519"
+    secret_file.write_text("not-a-real-key", encoding="utf-8")
+    context = ToolContext(user_request="test", model="test")
+
+    blocked_config = _config(tmp_path)
+    blocked_result = SearchFilesTool(blocked_config).execute(
+        {"query": "id_ed25519", "roots": [str(tmp_path)], "max_results": 10},
+        context,
+    )
+    assert blocked_result.ok
+    assert blocked_result.data["results"] == []
+
+    full_access_config = DumboConfig(
+        filesystem=FilesystemConfig(
+            project_roots=(tmp_path.resolve(),),
+            allow_sensitive_reads=True,
+        )
+    )
+    allowed_result = SearchFilesTool(full_access_config).execute(
+        {"query": "id_ed25519", "roots": [str(tmp_path)], "max_results": 10},
+        context,
+    )
+    assert allowed_result.ok
+    assert allowed_result.data["results"][0]["path"] == str(secret_file)
+
+
 def test_outside_root_is_rejected(tmp_path: Path) -> None:
     config = _config(tmp_path / "allowed")
     outside = tmp_path / "outside.txt"

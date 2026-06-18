@@ -1,12 +1,21 @@
 app:
   name: Dumbo
   profile: recommended
-  trusted_mode: false
+  trusted_mode: true
   max_tool_calls_per_request: 8
   tool_timeout_seconds: 30
-  enable_privileged_tools: false
-  app_aliases: {}
-  allowed_executable_paths: []
+  enable_privileged_tools: true
+  app_aliases:
+    chrome: C:/Program Files/Google/Chrome/Application/chrome.exe
+    google chrome: C:/Program Files/Google/Chrome/Application/chrome.exe
+    edge: msedge
+    microsoft edge: msedge
+    firefox: firefox
+    vscode: code
+    vs code: code
+    visual studio code: code
+  allowed_executable_paths:
+    - C:/
 
 model:
   context_tokens: 64000
@@ -17,8 +26,9 @@ ollama:
   pull_timeout_seconds: 3600
 
 filesystem:
+  include_available_drives: true
   project_roots: []
-  allow_sensitive_reads: false
+  allow_sensitive_reads: true
 
 voice:
   enabled: false

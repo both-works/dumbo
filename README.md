@@ -44,12 +44,26 @@ python -m dumbo audit tail
 python -m dumbo config path
 ```
 
+## Owner Full-Access Mode
+
+The checked-in default config is set for this PC owner workflow:
+
+- all currently mounted drives are included in the filesystem roots
+- sensitive path reads are allowed
+- safe writes are allowed in trusted mode
+- privileged actions can be requested, but still require confirmation
+- common app aliases include Chrome, Edge, Firefox, and VS Code
+
+Shell commands, destructive file operations, privileged actions, coordinate clicks,
+typing into external apps, app closes, and external commitments remain confirmation
+gated and audited.
+
 ## Architecture
 
 - The model never receives uncontrolled OS access.
 - Every action is a named tool with a JSON schema, risk level, dry-run support where meaningful, validation, and policy requirements.
 - Read-only tools may run automatically inside configured filesystem roots.
-- Writes, shell commands, destructive operations, privileged actions, coordinate clicks, and external commitments require confirmation or are blocked by default.
+- In the checked-in owner config, safe writes can run in trusted mode. Shell commands, destructive operations, privileged actions, coordinate clicks, app closes, and external commitments still require confirmation.
 - Audit records include the user request, model, tool, redacted arguments, dry-run result, approval decision, execution result, and errors.
 
 ## Model Profiles

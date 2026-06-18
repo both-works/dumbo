@@ -11,6 +11,11 @@ Dumbo is designed as a local-first assistant with auditable, policy-gated PC acc
 - Privileged actions are blocked unless explicitly enabled in config and confirmed.
 - Startup integration is not created by this scaffold.
 
+The checked-in `config/default.yaml` is currently configured for owner full-access
+testing on this PC: mounted drives are included in allowed filesystem roots,
+sensitive reads are enabled, trusted mode is enabled for safe writes, and
+privileged tools are enabled but still confirmation-gated.
+
 ## Risk Levels
 
 - `READ_ONLY`: allowed automatically within configured roots.
@@ -23,9 +28,9 @@ Dumbo is designed as a local-first assistant with auditable, policy-gated PC acc
 
 ## Filesystem Boundaries
 
-Initial allowed roots are the user's home, Desktop, Documents, Downloads, Pictures, Music, Videos, and configured project roots. Files outside those roots are denied by default.
+Initial allowed roots are the user's home, Desktop, Documents, Downloads, Pictures, Music, Videos, configured project roots, and, when `filesystem.include_available_drives=true`, all mounted drive roots visible to the current user.
 
-Dumbo blocks sensitive locations and file names by default, including browser cookies, password stores, SSH keys, API keys, credential stores, and crypto wallet material. Even confirmed sensitive reads are redacted in logs.
+Dumbo blocks sensitive locations and file names by default, including browser cookies, password stores, SSH keys, API keys, credential stores, and crypto wallet material. Setting `filesystem.allow_sensitive_reads=true` permits those paths for owner-controlled testing.
 
 ## Shell Policy
 

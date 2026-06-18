@@ -310,13 +310,23 @@ def parse_local_intent(user_input: str) -> ToolCall | None:
     text = user_input.strip()
     lowered = text.casefold()
     home = Path.home()
+    windows_path = _extract_windows_path(text)
 
+    if "allowed roots" in lowered or "filesystem roots" in lowered:
+        return ToolCall("list_allowed_roots", {})
+    if windows_path and re.search(r"\b(list|show)\b", lowered):
+        return ToolCall("list_dir", {"path": windows_path})
     if re.search(r"\blist\b.*\bdownloads\b", lowered):
         return ToolCall("list_dir", {"path": str(home / "Downloads")})
     if re.search(r"\blist\b.*\bdocuments\b", lowered):
         return ToolCall("list_dir", {"path": str(home / "Documents")})
     if re.search(r"\bopen\b.*\bnotepad\b", lowered):
         return ToolCall("open_app", {"name_or_path": "notepad"})
+    open_match = re.match(r"open\s+(?:app\s+)?(.+?)\s*$", text, flags=re.IGNORECASE)
+    if open_match:
+        target = open_match.group(1).strip().rstrip(".")
+        if target and not _extract_windows_path(target):
+            return ToolCall("open_app", {"name_or_path": target})
     if lowered.startswith("run powershell "):
         return ToolCall("run_powershell", {"command": text[len("run powershell ") :]})
     if "search" in lowered and "documents" in lowered:
@@ -339,7 +349,29 @@ def parse_local_intent(user_input: str) -> ToolCall | None:
     return None
 
 
+def _extract_windows_path(text: str) -> str | None:
+    quoted = re.search(r"""["']([A-Za-z]:[\\/][^"']+)["']""", text)
+    match = quoted or re.search(r"([A-Za-z]:[\\/][^\r\n\"']*)", text)
+    if match is None:
+        return None
+    candidate = match.group(1).strip()
+    for marker in [". Reply", ". reply", "\n"]:
+        index = candidate.find(marker)
+        if index >= 0:
+            candidate = candidate[:index]
+    candidate = candidate.rstrip(" .")
+    return candidate or None
+
+
 def _summarize_tool_result(tool_name: str, result: ToolResult) -> str:
+    if result.ok and tool_name == "list_allowed_roots":
+        roots = result.data.get("roots", [])
+        if isinstance(roots, list):
+            return "\n".join(str(root) for root in roots)
+    if result.ok and tool_name == "list_dir":
+        entries = result.data.get("entries", [])
+        if isinstance(entries, list):
+            return "\n".join(str(entry.get("name", "")) for entry in entries if entry.get("name"))
     if result.ok:
         return f"{tool_name}: {result.message}"
     return f"{tool_name}: {result.message}" + (f" Error: {result.error}" if result.error else "")

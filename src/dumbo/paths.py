@@ -83,6 +83,23 @@ def user_default_roots() -> list[Path]:
     return dedupe_existing_roots(roots)
 
 
+def system_roots() -> list[Path]:
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            drives_mask = ctypes.windll.kernel32.GetLogicalDrives()
+        except (AttributeError, OSError):
+            anchor = Path.home().anchor
+            return dedupe_existing_roots([Path(anchor)] if anchor else [])
+
+        roots = [
+            Path(f"{chr(ord('A') + index)}:/") for index in range(26) if drives_mask & (1 << index)
+        ]
+        return dedupe_existing_roots(roots)
+    return dedupe_existing_roots([Path("/")])
+
+
 def dedupe_existing_roots(roots: list[Path]) -> list[Path]:
     seen: set[str] = set()
     result: list[Path] = []
